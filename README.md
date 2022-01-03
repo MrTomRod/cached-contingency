@@ -105,3 +105,12 @@ result_df = cb.get_or_create_many(test_df)
 print('Like a flash!')
 ```
 
+**Advanced usage:**
+
+Alternative way to specify the path to the database via Python and change number of CPUs:
+
+```python
+from cached_contingency import CachedFisher
+
+cf = CachedFisher(db_path='/custom/path.db', n_cpus=1)
+```
