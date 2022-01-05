@@ -3,3 +3,4 @@ __pycache__
 /build/
 /dist/
 /cached_contingency.egg-info/
+/howto_upload.md
