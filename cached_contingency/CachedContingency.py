@@ -1,23 +1,24 @@
+import logging
 from multiprocessing import Pool
 from typing import Optional, Callable
 
 import pandas as pd
 
-from .CachedFunction import CachedFunction
+from .KeyValueStore import KeyValueStore
 
 
-class CachedContingency(CachedFunction):
+class CachedContingency(KeyValueStore):
     function_name: str
     table_name: str
     stat_name: str
     test_function: Callable
     swap_to_string_function: Callable
     swap_series_to_string_function: Callable
+    n_cpus: int
 
     columns = {
         'test': 'text',
-        'pval': 'real',
-        'stat': 'real'
+        'pval': 'real'
     }
     pk_col = 'test'
 
@@ -26,48 +27,50 @@ class CachedContingency(CachedFunction):
             db_path: str = None,
             n_cpus: int = None
     ):
-        for attr in ('function_name', 'table_name', 'stat_name', 'columns', 'pk_col',
+        for attr in ('function_name', 'table_name', 'columns', 'pk_col',
                      'test_function', 'swap_to_string_function', 'swap_series_to_string_function'):
             assert hasattr(self, attr), f'Failed to build ContingencyCache class: {attr=} is not defined!'
 
-        super().__init__(table_name=self.table_name, db_path=db_path, n_cpus=n_cpus)
+        self.n_cpus = n_cpus
+
+        super().__init__(table_name=self.table_name, db_path=db_path)
 
     def create_db(self):
         self._create_db(columns=self.columns, pk_col=self.pk_col)
 
-    def get_or_create(self, c1r1: int, c2r1: int, c1r2: int, c2r2: int) -> (float, float):
+    def get_or_create(self, c1r1: int, c2r1: int, c1r2: int, c2r2: int) -> float:
         test_string = self.swap_to_string_function(c1r1, c2r1, c1r2, c2r2)
 
-        sql = f'SELECT pval, stat FROM {self.table_name} WHERE test = ?'
+        sql = f'SELECT pval FROM {self.table_name} WHERE test = ?'
         res = self.cur.execute(
             sql,
             (test_string,)
-        ).fetchone()
+        ).fetchone()[0]
 
         if res is None:
             res = self._create(test_string)
 
         return res
 
-    def _create(self, test_string: str) -> (float, float):
-        pval, stat = self.test_function(test_string)
-        self.cur.execute(f'INSERT OR IGNORE INTO {self.table_name} VALUES (?, ?, ?)', (test_string, pval, stat))
+    def _create(self, test_string: str) -> float:
+        pval = self.test_function(test_string)
+        self.cur.execute(f'INSERT OR IGNORE INTO {self.table_name} VALUES (?, ?)', (test_string, pval))
         self.con.commit()
-        return pval, stat
+        return pval
 
     def _create_many(self, test_strings: [str]):
         with Pool(self.n_cpus) as p:
             res = p.map(self.test_function, test_strings)
 
-        res = [(test_string, pval, stat) for test_string, (pval, stat) in zip(test_strings, res)]
+        res = [(test_string, pval) for test_string, pval in zip(test_strings, res)]
 
         self.cur.executemany(
-            f'INSERT OR IGNORE INTO {self.table_name} VALUES (?, ?, ?)',
+            f'INSERT OR IGNORE INTO {self.table_name} VALUES (?, ?)',
             res
         )
         self.con.commit()
 
-        return pd.DataFrame(res, columns=['__test_string__', 'pval', 'stat'])
+        return pd.DataFrame(res, columns=['__test_string__', 'pval'])
 
     def get_or_create_many(self, test_df: pd.DataFrame, create_only: bool = False) -> Optional[pd.DataFrame]:
         for col in ['c1r1', 'c2r1', 'c1r2', 'c2r2']:
@@ -90,17 +93,21 @@ class CachedContingency(CachedFunction):
 
         self._create_many(missing)
 
-        print(
-            f'Calculated {len(missing) / len(unique_tests):.1%} ({len(missing)} out of {len(unique_tests)}) {self.table_name.capitalize()}\'s tests')
+        logging.info(
+            f'Calculated {len(missing)} missing '
+            f'out of {len(unique_tests)} unique '
+            f'out of {len(test_df)} total '
+            f'{self.table_name.capitalize()}\'s tests'
+        )
 
         if create_only:
             return
 
         res = self.cur.execute(
-            f'SELECT test, pval, stat FROM {self.table_name} WHERE test IN ({self.list_to_string(unique_tests)})'
+            f'SELECT test, pval FROM {self.table_name} WHERE test IN ({self.list_to_string(unique_tests)})'
         ).fetchall()
 
-        res = pd.DataFrame(data=res, columns=['__test_string__', 'pval', self.stat_name])
+        res = pd.DataFrame(data=res, columns=['__test_string__', 'pval'])
 
         res = pd.merge(test_df, res, on=['__test_string__'], how='left')
 

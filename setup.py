@@ -11,7 +11,7 @@ README = (HERE / 'README.md').read_text()
 # This call to setup() does all the work
 setup(
     name='cached-contingency',
-    version='0.0.1',
+    version='0.0.3',
     description="Compute and cache Fisher's exact test and Boschloo's test more efficiently!",
     long_description=README,
     long_description_content_type='text/markdown',

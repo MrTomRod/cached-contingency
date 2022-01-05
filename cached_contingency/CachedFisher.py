@@ -3,6 +3,8 @@ from scipy.stats import fisher_exact
 
 from .CachedContingency import CachedContingency
 
+FISHER_COMBINATIONS = ['abcd', 'acbd', 'badc', 'bdac', 'cadb', 'cdab', 'dbca', 'dcba']
+
 
 def pickleable_fisher(test_string: str) -> (float, float):
     """
@@ -13,27 +15,38 @@ def pickleable_fisher(test_string: str) -> (float, float):
     :param test_string: comma separated contingency table ('1,2,3,4' becomes [[1, 2], [3, 4]])
     :return: Fisher's pvalue, odds ratio
     """
-    c1r1, c2r1, c1r2, c2r2 = (int(i) for i in test_string.split(','))
-    odds_ratio, pvalue = fisher_exact([[c1r1, c2r1], [c1r2, c2r2]])
-    return pvalue, odds_ratio
+    a, b, c, d = (int(i) for i in test_string.split(','))
+    odds_ratio, pvalue = fisher_exact([[a, b], [c, d]])
+    return pvalue
 
 
-def fisher_swap(c1r1: int, c2r1: int, c1r2: int, c2r2: int) -> (int, int, int, int):
+def fisher_swap_odds_ratio(a: int, b: int, c: int, d: int) -> (int, int, int, int):
     """
-    Four contingency tables always give the same result: ['abcd', 'acbd', 'dbca', 'dcba']
+    Four contingency tables always give the same pvalue _and_ odds ratio: ['abcd', 'acbd', 'dbca', 'dcba']
+
+    This is a legacy function.
+    """
+    if a > d:
+        a, d = d, a
+    if b > c:
+        b, c = c, b
+    return a, b, c, d
+
+
+def fisher_swap(a: int, b: int, c: int, d: int) -> (int, int, int, int):
+    """
+    Eight contingency tables always give the same pvalue: ['abcd', 'acbd', 'badc', 'bdac', 'cadb', 'cdab', 'dbca', 'dcba']
 
     Compute and save only one version.
     """
-    if c1r1 > c2r2:
-        c1r1, c2r2 = c2r2, c1r1
-    if c2r1 > c1r2:
-        c2r1, c1r2 = c1r2, c2r1
-    return c1r1, c2r1, c1r2, c2r2
+    vals = {'a': a, 'b': b, 'c': c, 'd': d}
+    equivalent_combinations = [tuple(vals[letter] for letter in combination) for combination in FISHER_COMBINATIONS]
+    return sorted(equivalent_combinations, key=lambda comb: (comb[0], comb[1], comb[2], comb[3]))[0]
 
 
-def fisher_swap_to_string(c1r1: int, c2r1: int, c1r2: int, c2r2: int) -> str:
-    c1r1, c2r1, c1r2, c2r2 = fisher_swap(c1r1, c2r1, c1r2, c2r2)
-    return f'{c2r1},{c1r1},{c2r2},{c1r2}'
+def fisher_swap_to_string(a: int, b: int, c: int, d: int) -> str:
+    a, b, c, d = fisher_swap(a, b, c, d)
+    return f'{a},{b},{c},{d}'
 
 
 def fisher_swap_series_to_string(data: pd.Series):
@@ -43,7 +56,6 @@ def fisher_swap_series_to_string(data: pd.Series):
 class CachedFisher(CachedContingency):
     function_name = 'fisher'
     table_name = 'fisher'
-    stat_name = 'odds_ratio'
 
     def __init__(
             self,

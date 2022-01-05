@@ -6,7 +6,7 @@ from .CachedContingency import CachedContingency
 
 def pickleable_boschloo(test_string: str) -> (float, float):
     """
-    Calculate Boschloo's test, ensure that pvalue and stat are never nan
+    Calculate Boschloo's test, ensure that pvalue is never nan
 
     This function can be pickled
 
@@ -17,12 +17,12 @@ def pickleable_boschloo(test_string: str) -> (float, float):
     boschloo_res = boschloo_exact([[c1r1, c2r1], [c1r2, c2r2]])
 
     # enforce pvalue and statistic <= 1
-    return min(1, boschloo_res.pvalue), min(1, boschloo_res.statistic)
+    return min(1, boschloo_res.pvalue)
 
 
 def boschloo_swap(c1r1: int, c2r1: int, c1r2: int, c2r2: int) -> (int, int, int, int):
     """
-    Four contingency tables always give the same result: ['abcd', 'badc', 'cdab', 'dcba']
+    Four contingency tables always give the same pvalue: ['abcd', 'badc', 'cdab', 'dcba']
 
     Compute and save only one version.
     """
@@ -45,7 +45,6 @@ def boschloo_swap_series_to_string(data: pd.Series) -> str:
 class CachedBoschloo(CachedContingency):
     function_name = 'boschloo'
     table_name = 'boschloo'
-    stat_name = 'fisher_stat'
 
     def __init__(
             self,

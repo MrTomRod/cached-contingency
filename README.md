@@ -17,13 +17,13 @@ pip install cached_contingency
 I have to compute lots of these tests and want to accelerate the process. There are two optimizations that came to my mind:
 
 1) My contingency tables often have identical column sums, so many tests can be recycled
-    * Fisher's test: `abcd`, `acbd`, `dbca` and `dcba` are equivalent
-    * Boschloo's test: `abcd`, `badc`, `cdab` and `dcba` are equivalent
 2) Some contingency tables are equivalent and only have to be computed once
+    * Fisher's test: `abcd`, `acbd`, `badc`, `bdac`, `cadb`, `cdab`, `dbca` and `dcba` are equivalent (pvalue, _not_ odds ratio)
+    * Boschloo's test: `abcd`, `badc`, `cdab` and `dcba` are equivalent
 
 Furthermore, sometimes, one has to re-run tools. In these cases, all previously computed results can be recycled.
 
-As cache, a SQLite database is used.
+As cache, an SQLite database is used.
 
 ### Execution
 
@@ -38,29 +38,33 @@ As cache, a SQLite database is used.
 Set the location of the cache database:
 
 ```bash
-export CACHED_CONTINGENCY_DB=/custom/path.db  # default: ~/.cache/contingency.db
+export KEY_VALUE_STORE_DB=/custom/path.db  # default: ~/.cache/keyvaluestore.db
 ```
 
 Calculate single tests:
 
 ```python
-from cached_contingency import CachedFisher, CachedBoschloo
+from cached_contingency import CachedFisher, CachedBoschloo, odds_ratio
 from scipy.stats import fisher_exact, boschloo_exact
+from numpy import isclose
 
 # Create class (automatically creates database if none exists yet)
 cf = CachedFisher()
 # Calculate Fisher's test
-pval, odds_ratio = cf.get_or_create(74, 31, 43, 32)
+pval_cache = cf.get_or_create(74, 31, 43, 32)
+odds_ratio_cache = odds_ratio(74, 31, 43, 32)
 # This is equivalent to:
-odds_ratio, pval = fisher_exact([[74, 31], [43, 32]])
+odds_ratio_calc, pval_calc = fisher_exact([[74, 31], [43, 32]])
+assert isclose(pval_cache, pval_calc)
+assert isclose(odds_ratio_cache, odds_ratio_calc)
 
 # Create class (automatically creates database if none exists yet)
 cb = CachedBoschloo()
 # Calculate Fisher's test
-pval_b, pval_f = cb.get_or_create(74, 31, 43, 32)
+pval_cache = cb.get_or_create(74, 31, 43, 32)
 # This is almost* equivalent to:
-boschloo_result = boschloo_exact([[74, 31], [43, 32]])
-pval_b, pval_f = boschloo_result.pvalue, boschloo_result.statistic
+pval_calc = boschloo_exact([[74, 31], [43, 32]]).pvalue
+assert isclose(pval_cache, pval_calc)
 ```
 
 * \*: Not exactly equivalent: My function never returns pvalues greater than 1 and never returns nan as pvalues.
