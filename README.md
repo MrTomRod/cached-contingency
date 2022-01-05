@@ -97,12 +97,12 @@ print(test_df)
 # Calculate multiple Boschloo's tests
 result_df = cb.get_or_create_many(test_df)
 print(result_df)
-#    c1r1  c2r1  c1r2  c2r2          pval   fisher_stat
-# 0   102   179    92    14  3.442564e-20  3.974758e-20
-# 1   106    71   188    20  1.144156e-12  1.197655e-12
-# 2   102   121    74    87  9.692791e-01  5.239450e-01
-# 3   116    99   103   151  3.821222e-03  2.490365e-03
-# 4   130   149    52     1  1.831830e-14  1.595989e-14
+#    c1r1  c2r1  c1r2  c2r2          pval
+# 0   102   179    92    14  3.442564e-20
+# 1   106    71   188    20  1.144156e-12
+# 2   102   121    74    87  9.692791e-01
+# 3   116    99   103   151  3.821222e-03
+# 4   130   149    52     1  1.831830e-14
 
 # If you run this again, the results will be loaded from cache:
 result_df = cb.get_or_create_many(test_df)
