@@ -10,7 +10,6 @@ from .KeyValueStore import KeyValueStore
 class CachedContingency(KeyValueStore):
     function_name: str
     table_name: str
-    stat_name: str
     test_function: Callable
     swap_to_string_function: Callable
     swap_series_to_string_function: Callable
@@ -45,7 +44,7 @@ class CachedContingency(KeyValueStore):
         res = self.cur.execute(
             sql,
             (test_string,)
-        ).fetchone()[0]
+        ).fetchone()
 
         if res is None:
             res = self._create(test_string)
